@@ -2,17 +2,34 @@ package com.lmt.app;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
+
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Opcodes;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
+import com.lmt.annotation.After;
+import com.lmt.annotation.Aspect;
 import com.lmt.annotation.Autowired;
+import com.lmt.annotation.Before;
 import com.lmt.annotation.Component;
 import com.lmt.util.FileUtil;
+import com.lmt.util.ProxyUtil;
+
+import net.sf.cglib.proxy.Enhancer;
+import net.sf.cglib.proxy.MethodInterceptor;
+import net.sf.cglib.proxy.MethodProxy;
 
 public class App {
 	private Class main;
@@ -70,13 +87,13 @@ public class App {
 					Autowired auto = field.getAnnotation(Autowired.class);
 					String requiredName = auto.name();
 					beans.cellSet().forEach(requiredCell -> {
-						Object requiredBean=requiredCell.getValue();
+						Object requiredBean = requiredCell.getValue();
 						Class clazz = field.getType();
-						
+
 						if (field.getType().isInstance(requiredBean) && Objects.equals(beanName, requiredName)) {
 							field.setAccessible(true);
 							try {
-								
+
 								field.set(cell.getValue(), requiredBean);
 
 							} catch (IllegalArgumentException e) {
@@ -104,6 +121,7 @@ public class App {
 		try {
 			// 获取所有的需要注入容器的bean
 			creatBean();
+			aop();
 			dependencyInject();
 
 		} catch (Exception e) {
@@ -112,8 +130,55 @@ public class App {
 		}
 	}
 
-	public Object getBean(Class clazz, String beanName) {
-		return this.beans.get(clazz, beanName);
+	/**
+	 * 实现所有bean的aop
+	 */
+	private void aop() {
+		System.out.println("开始aop");
+		Table<Class, String, Object> beanTable = HashBasedTable.create();
+		this.beans.cellSet().stream().filter(cell -> {
+			// 取出所有含有aspect注解的bean
+			return cell.getRowKey().isAnnotationPresent(Aspect.class);
+		}).forEach(cell2 -> {
+
+			Stream.of(cell2.getRowKey().getDeclaredMethods()).filter(method -> {
+				// 取出含有before或者after注解修饰的方法
+				return (method.isAnnotationPresent(Before.class) || method.isAnnotationPresent(After.class));
+			}).forEach(method -> {
+
+				String fullMethodName = null;
+				Boolean isBefore = method.isAnnotationPresent(Before.class);
+				if (isBefore) {
+					fullMethodName = method.getAnnotation(Before.class).methodName();
+				} else {
+					fullMethodName = method.getAnnotation(After.class).methodName();
+				}
+				String methodName = fullMethodName.substring(fullMethodName.lastIndexOf('.') + 1);
+
+				String className = fullMethodName.substring(0, fullMethodName.lastIndexOf('.'));
+
+				try {
+					Class target = Class.forName(className);
+					Component com = (Component) target.getAnnotation(Component.class);
+					String beanName = com.name();
+					Object proxy=ProxyUtil.getProxy(cell2.getRowKey(), cell2.getValue());
+					beanTable.put(target, beanName, proxy);
+				} catch (ClassNotFoundException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+			});
+			;
+		});
+		// 重新给beans赋值来代替那些要织入的类
+		this.beans.putAll(beanTable);
+
+		System.out.println("结束");
+	}
+
+	public <T> T getBean(Class clazz, String beanName) {
+		return (T) this.beans.get(clazz, beanName);
 	}
 
 }
