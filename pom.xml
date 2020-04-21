@@ -22,11 +22,32 @@
     <artifactId>cglib</artifactId>
     <version>3.3.0</version>
 </dependency>
-	<!-- https://mvnrepository.com/artifact/org.ow2.asm/asm-all -->
+	 <!-- tomcat-embed-core -->
+  <dependency>
+    <groupId>org.apache.tomcat.embed</groupId>
+    <artifactId>tomcat-embed-core</artifactId>
+    <version>8.5.39</version>
+  </dependency>
+ 
+  <!-- tomcat-embed-el -->
+  <dependency>
+    <groupId>org.apache.tomcat.embed</groupId>
+    <artifactId>tomcat-embed-el</artifactId>
+    <version>8.5.39</version>
+  </dependency>
+ 
+  <!-- tomcat-embed-jasper -->
+  <dependency>
+    <groupId>org.apache.tomcat.embed</groupId>
+    <artifactId>tomcat-embed-jasper</artifactId>
+    <version>8.5.39</version>
+</dependency>
+	<!-- https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api -->
 <dependency>
-    <groupId>org.ow2.asm</groupId>
-    <artifactId>asm-all</artifactId>
-    <version>5.2</version>
+    <groupId>javax.servlet</groupId>
+    <artifactId>javax.servlet-api</artifactId>
+    <version>4.0.1</version>
+    <scope>provided</scope>
 </dependency>
 	
 </dependencies>
